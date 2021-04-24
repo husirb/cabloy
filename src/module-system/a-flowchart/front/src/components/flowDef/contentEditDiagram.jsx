@@ -45,34 +45,18 @@ export default {
     },
     contentProcessRender() {
       if (!this.contentProcess) return;
-      const nodes = this.contentProcess.nodes.map(item => {
-        const node = {
-          id: item.id,
-          shape: item.type,
-          attrs: {
-            label: {
-              text: item.nameLocale || item.name,
-            },
-          },
-        };
-        if (this.flowNodeDefIds && this.flowNodeDefIds.indexOf(item.id) > -1) {
-          node.attrs.body = {
-            stroke: 'orange',
-            strokeWidth: 4,
-          };
-        }
-        return node;
-      });
-      const edges = this.contentProcess.edges.map(item => {
-        const edge = {
-          id: item.id,
-          shape: 'sequence',
-          source: item.source,
-          target: item.target,
-          label: item.nameLocale || item.name,
-        };
-        return edge;
-      });
+      // nodes
+      const nodes = [];
+      for (const item of this.contentProcess.nodes) {
+        const node = this.__createNode(item);
+        nodes.push(node);
+      }
+      // edges
+      const edges = [];
+      for (const item of this.contentProcess.edges) {
+        const edge = this.__createEdge(item);
+        edges.push(edge);
+      }
       return { nodes, edges };
     },
   },
@@ -238,20 +222,6 @@ export default {
     },
     __graphEvents(container) {
       if (this.viewOnly) return;
-      // // mouseenter
-      // this.graph.on('node:mouseenter', () => {
-      //   const ports = container.querySelectorAll(
-      //     '.x6-port-body'
-      //   );
-      //   this.__showPorts(ports, true);
-      // });
-      // // mouseleave
-      // this.graph.on('node:mouseleave', () => {
-      //   const ports = container.querySelectorAll(
-      //     '.x6-port-body'
-      //   );
-      //   this.__showPorts(ports, false);
-      // });
       // connected
       this.graph.on('edge:connected', ({ isNew, edge }) => {
         if (!isNew) return;
@@ -276,11 +246,57 @@ export default {
           rankdir: this.size.width < this.size.height ? 'TB' : 'LR',
           align: undefined, // "UL",
           nodesep: 30,
-          ranksep: 60,
+          ranksep: 50,
           controlPoints: true,
         });
       }
       return this.dagreLayout.layout(this.contentProcessRender);
+    },
+    __createNode(item) {
+      // nodeBase
+      const nodeBase = this.nodeBases[item.type];
+      // icons
+      const icon = this.$meta.util.combineFetchStaticPath(nodeBase.icon);
+      const iconSrc = this.$meta.util.escapeURL(icon);
+      const icons = `<div class="eb-flowchart-node-icons">
+                      <img src="${iconSrc}" />
+                    </div>`;
+      // label
+      const labelText = this.$meta.util.escapeHtml(item.nameLocale || item.name);
+      const label = `<div class="eb-flowchart-node-label">
+                      <span>${labelText}</span>
+                    </div>`;
+      // node
+      const node = {
+        id: item.id,
+        shape: 'eb-flowchart-node',
+        attrs: {
+          icons: {
+            html: icons,
+          },
+          label: {
+            html: label,
+          },
+        },
+      };
+      // highlight current node
+      if (this.flowNodeDefIds && this.flowNodeDefIds.indexOf(item.id) > -1) {
+        node.attrs.body = {
+          stroke: 'orange',
+          strokeWidth: 4,
+        };
+      }
+      return node;
+    },
+    __createEdge(item) {
+      const edge = {
+        id: item.id,
+        shape: 'sequence',
+        source: item.source,
+        target: item.target,
+        label: item.nameLocale || item.name,
+      };
+      return edge;
     },
     __registerEdges() {
       // always register for readOnly maybe changed
@@ -296,159 +312,62 @@ export default {
       // always register for readOnly maybe changed
       // if (this.x6.Graph.__registerNodes) return;
       // this.x6.Graph.__registerNodes = true;
-      for (const nodeType in this.nodeBases) {
-        const nodeBase = this.nodeBases[nodeType];
-        let options;
-        if (nodeBase.group === 'startEvent' || nodeBase.group === 'endEvent') {
-          options = this.__registerNodeCircle(nodeBase);
-        } else {
-          options = this.__registerNodeRect(nodeBase);
-        }
-        this.x6.Graph.registerNode(nodeType, options, true);
-      }
+      const options = this.__registerNode();
+      this.x6.Graph.registerNode('eb-flowchart-node', options, true);
     },
     __registerEdge(edgeBase) {
       const options = {
         inherit: 'edge',
         attrs: {
           line: {
-            stroke: '#000',
-            opacity: 0.4,
+            stroke: '#333333',
           },
         },
       };
       return options;
     },
-    __registerNodeCircle(nodeBase) {
+    __registerNode() {
       const options = {
-        width: 80,
+        width: 120,
         height: 80,
-        // ports: this.__registerConnectionPorts(),
-        markup: [
-          {
-            tagName: 'circle',
-            selector: 'body',
-          },
-          {
-            tagName: 'image',
-            selector: 'image',
-          },
-          {
-            tagName: 'text',
-            selector: 'label',
-          },
-        ],
-        attrs: {
-          body: {
-            fill: '#ffffff',
-            stroke: '#000',
-            strokeWidth: 0,
-            r: 40,
-            refX: '50%',
-            refY: '50%',
-            pointerEvents: 'visiblePainted',
-            magnet: !this.readOnly,
-          },
-          image: {
-            refWidth: '100%',
-            refHeight: '100%',
-            opacity: 0.4,
-            pointerEvents: 'none',
-            href: this.$meta.util.combineFetchStaticPath(nodeBase.icon),
-          },
-          label: {
-            fontSize: 14,
-            fill: '#333333',
-            refX: '50%',
-            refY: '50%',
-            textAnchor: 'middle',
-            textVerticalAnchor: 'middle',
-          },
-        },
-      };
-      return options;
-    },
-    __registerNodeRect(nodeBase) {
-      const options = {
-        width: 125,
-        height: 100,
-        // ports: this.__registerConnectionPorts(),
         markup: [
           {
             tagName: 'rect',
             selector: 'body',
           },
           {
-            tagName: 'image',
-            selector: 'image',
+            tagName: 'foreignObject',
+            selector: 'icons',
           },
           {
-            tagName: 'text',
+            tagName: 'foreignObject',
             selector: 'label',
           },
         ],
         attrs: {
           body: {
             fill: '#ffffff',
-            stroke: '#000',
-            strokeWidth: 0,
+            stroke: '#333333',
+            strokeWidth: 1,
+            rx: 6,
+            ry: 6,
             refWidth: '100%',
             refHeight: '100%',
             pointerEvents: 'visiblePainted',
+          },
+          icons: {
+            refWidth: '100%',
+            height: 32,
+            pointerEvents: 'visiblePainted',
             magnet: !this.readOnly,
           },
-          image: {
-            refWidth: '100%',
-            refHeight: '100%',
-            opacity: 0.4,
-            pointerEvents: 'none',
-            href: this.$meta.util.combineFetchStaticPath(nodeBase.icon),
-          },
           label: {
-            fontSize: 14,
-            fill: '#333333',
-            refX: '50%',
-            refY: '75%',
-            textAnchor: 'middle',
-            textVerticalAnchor: 'middle',
+            y: 24,
+            refWidth: '100%',
           },
         },
       };
       return options;
-    },
-    __registerConnectionPorts() {
-      return {
-        groups: {
-          group1: {
-            position: {
-              name: 'absolute',
-              args: { x: '50%', y: '50%' },
-            },
-            attrs: {
-              circle: {
-                r: 8,
-                magnet: true,
-                stroke: 'orange',
-                strokeWidth: 2,
-                fill: 'transparent',
-                style: {
-                  visibility: 'hidden',
-                },
-              },
-            },
-          },
-        },
-        items: [
-          {
-            group: 'group1',
-          },
-        ],
-      };
-    },
-    __showPorts(ports, show) {
-      for (let i = 0, len = ports.length; i < len; i = i + 1) {
-        ports[i].style.visibility = show ? 'visible' : 'hidden';
-      }
     },
     onSize(size) {
       this.size.height = size.height;

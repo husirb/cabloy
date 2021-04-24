@@ -9,9 +9,9 @@ module.exports = ctx => {
       // end
       await this.flowInstance._endFlow({
         flowHandleStatus: 1,
-        flowRemark: null,
+        flowRemark: 'Submitted',
         atom: {
-          close: true,
+          submit: true,
         },
       });
       // also true
